@@ -7,11 +7,11 @@
 <style>
   :root {
     --bg1:#eef0ff; --bg2:#fdf2f8; --card:rgba(255,255,255,.85); --text:#1c1f2e; --muted:#8b90a5;
-    --accent:#6366f1; --accent2:#a855f7; --border:rgba(99,102,241,.12); --danger:#ef4444; --track:#e7e9f5;
+    --accent:#6366f1; --accent2:#a855f7; --border:rgba(99,102,241,.12); --danger:#ef4444; --warn:#d97706; --track:#e7e9f5;
     --shadow:0 20px 50px -20px rgba(79,70,229,.35);
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg1:#12132a; --bg2:#1f1230; --card:rgba(30,32,52,.85); --text:#eceefb; --muted:#8e93ae;
+    :root { --bg1:#12132a; --bg2:#1f1230; --card:rgba(30,32,52,.85); --text:#eceefb; --muted:#8e93ae; --warn:#fbbf24;
             --border:rgba(255,255,255,.08); --track:#2a2d48; --shadow:0 20px 50px -20px rgba(0,0,0,.6); }
   }
   * { box-sizing:border-box; }
@@ -27,21 +27,23 @@
   .progress { height:8px; background:var(--track); border-radius:99px; overflow:hidden; }
   .bar { height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .4s ease; }
   .pct { margin-top:6px; font-size:13px; color:var(--muted); }
+  .pct .over { color:var(--danger); font-weight:600; }
   .card { background:var(--card); backdrop-filter:blur(12px); border:1px solid var(--border);
           border-radius:20px; box-shadow:var(--shadow); overflow:hidden; }
-  form { display:flex; gap:10px; padding:16px; border-bottom:1px solid var(--border); }
-  input[type=text] { flex:1; padding:12px 14px; border:1px solid var(--border); border-radius:12px;
+  form { display:flex; gap:10px; padding:16px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  input[type=text], input[type=date] { padding:12px 14px; border:1px solid var(--border); border-radius:12px;
                      background:transparent; color:inherit; font:inherit; transition:box-shadow .2s, border-color .2s; }
-  input[type=text]::placeholder { color:var(--muted); }
-  input[type=text]:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 4px rgba(99,102,241,.18); }
+  input[type=text] { flex:1; min-width:150px; }
+  input[type=date] { color-scheme:light dark; }
+  input::placeholder { color:var(--muted); }
+  input[type=text]:focus, input[type=date]:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 4px rgba(99,102,241,.18); }
   button { font:inherit; cursor:pointer; border:0; border-radius:12px; transition:transform .15s, opacity .15s, background .15s, color .15s; }
   .add { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; padding:12px 20px; font-weight:600;
          box-shadow:0 6px 16px -6px rgba(99,102,241,.7); }
   .add:hover { transform:translateY(-1px); }
   .add:active { transform:translateY(0) scale(.97); }
   ul { list-style:none; margin:0; padding:6px 0; max-height:50vh; overflow:auto; }
-  li { display:flex; align-items:center; gap:14px; padding:13px 18px; transition:background .15s;
-       animation:in .25s ease; }
+  li { display:flex; align-items:center; gap:14px; padding:13px 18px; transition:background .15s; animation:in .25s ease; }
   li:hover { background:rgba(99,102,241,.06); }
   @keyframes in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
   li input { appearance:none; -webkit-appearance:none; width:22px; height:22px; margin:0; flex:none; cursor:pointer;
@@ -49,8 +51,13 @@
   li input:hover { border-color:var(--accent); }
   li input:checked { background:linear-gradient(135deg,var(--accent),var(--accent2)); border-color:transparent; }
   li input:checked::after { content:""; width:6px; height:11px; border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg) translate(-1px,-1px); }
-  li span { flex:1; word-break:break-word; transition:color .2s; }
-  li.done span { text-decoration:line-through; color:var(--muted); }
+  .body { flex:1; min-width:0; }
+  .text { word-break:break-word; transition:color .2s; }
+  li.done .text { text-decoration:line-through; color:var(--muted); }
+  .due { display:inline-block; margin-top:2px; font-size:12.5px; font-weight:600; color:var(--muted); }
+  .due.today { color:var(--warn); }
+  .due.overdue { color:var(--danger); }
+  li.done .due { color:var(--muted); font-weight:500; }
   .del { background:transparent; color:var(--muted); font-size:22px; line-height:1; padding:2px 8px; opacity:0; }
   li:hover .del { opacity:1; }
   .del:hover { color:var(--danger); background:rgba(239,68,68,.1); }
@@ -62,8 +69,9 @@
   .filters { display:flex; gap:4px; background:var(--track); padding:3px; border-radius:10px; }
   .filters button { background:transparent; color:var(--muted); padding:5px 12px; border-radius:8px; font-size:13px; font-weight:500; }
   .filters button.active { background:var(--card); color:var(--accent); box-shadow:0 1px 4px rgba(0,0,0,.12); }
-  .clear { background:transparent; color:var(--muted); font-size:13px; padding:5px 8px; }
-  .clear:hover { color:var(--danger); }
+  .link { background:transparent; color:var(--muted); font-size:13px; padding:5px 8px; }
+  .link:hover { color:var(--accent); }
+  .link.danger:hover { color:var(--danger); }
   .note { margin-top:14px; text-align:center; font-size:12px; color:var(--muted); }
   @media (max-width:480px) { body { padding:32px 12px; } .del { opacity:1; } }
 </style>
@@ -78,7 +86,8 @@
   </header>
   <div class="card">
     <form id="form">
-      <input type="text" id="input" placeholder="Add a new task…" autocomplete="off" autofocus>
+      <input type="text" id="input" placeholder="Add a new task…" autocomplete="off" maxlength="500" autofocus>
+      <input type="date" id="dueInput" title="Due date (optional)" aria-label="Due date">
       <button class="add" type="submit">Add</button>
     </form>
     <ul id="list"></ul>
@@ -89,7 +98,10 @@
         <button data-f="active">Active</button>
         <button data-f="done">Done</button>
       </div>
-      <button class="clear" id="clear">Clear done</button>
+      <span>
+        <button class="link" id="sort" title="Change sort order">Sort: added</button>
+        <button class="link danger" id="clear">Clear done</button>
+      </span>
     </footer>
   </div>
   <p class="note">Tasks are saved in this browser only.</p>
@@ -97,15 +109,36 @@
 <script>
   const KEY = 'todos-v1';
   let todos = [];
-  try { todos = JSON.parse(localStorage.getItem(KEY)) || []; } catch {}
+  try { todos = (JSON.parse(localStorage.getItem(KEY)) || []).map(t => ({ text: t.text, done: !!t.done, due: t.due || '' })); } catch {}
   let filter = 'all';
+  let sortByDue = false;
   const $ = id => document.getElementById(id);
   $('date').textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
 
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(todos)); } catch {} };
 
+  // ---- dates (all local time, stored as YYYY-MM-DD) ----
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  function dueInfo(t) {
+    if (!t.due) return null;
+    const today = iso(new Date());
+    const tomorrow = iso(new Date(Date.now() + 864e5));
+    const d = parse(t.due);
+    const nice = d.toLocaleDateString(undefined, { month:'short', day:'numeric', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+    if (t.done) return { cls:'', label:'Due ' + nice };
+    if (t.due < today) return { cls:'overdue', label:'Overdue · ' + nice };
+    if (t.due === today) return { cls:'today', label:'Due today' };
+    if (t.due === tomorrow) return { cls:'', label:'Due tomorrow' };
+    return { cls:'', label:'Due ' + nice };
+  }
+
   function render() {
-    const shown = todos.filter(t => filter === 'all' || (filter === 'done') === t.done);
+    let shown = todos.filter(t => filter === 'all' || (filter === 'done') === t.done);
+    if (sortByDue) {
+      // Open tasks first, soonest due date first; tasks without a date go last.
+      shown = [...shown].sort((a, b) => (a.done - b.done) || ((a.due || '9999') < (b.due || '9999') ? -1 : (a.due || '9999') > (b.due || '9999') ? 1 : 0));
+    }
     const list = $('list');
     list.innerHTML = '';
     if (!shown.length) {
@@ -120,32 +153,46 @@
       const cb = document.createElement('input');
       cb.type = 'checkbox'; cb.checked = t.done;
       cb.onchange = () => { t.done = cb.checked; save(); render(); };
-      const sp = document.createElement('span');
-      sp.textContent = t.text;
+      const body = document.createElement('div');
+      body.className = 'body';
+      const sp = document.createElement('div');
+      sp.className = 'text'; sp.textContent = t.text;
+      body.appendChild(sp);
+      const info = dueInfo(t);
+      if (info) {
+        const d = document.createElement('span');
+        d.className = 'due ' + info.cls; d.textContent = '📅 ' + info.label;
+        body.appendChild(d);
+      }
       const del = document.createElement('button');
       del.className = 'del'; del.textContent = '×'; del.title = 'Delete';
       del.onclick = () => { todos = todos.filter(x => x !== t); save(); render(); };
-      li.append(cb, sp, del);
+      li.append(cb, body, del);
       list.appendChild(li);
     }
     const left = todos.filter(t => !t.done).length;
     const done = todos.length - left;
+    const today = iso(new Date());
+    const overdue = todos.filter(t => !t.done && t.due && t.due < today).length;
     $('count').textContent = left + (left === 1 ? ' task left' : ' tasks left');
     const pct = todos.length ? Math.round(done / todos.length * 100) : 0;
     $('bar').style.width = pct + '%';
-    $('pct').textContent = todos.length ? `${done} of ${todos.length} done · ${pct}%` : 'No tasks yet';
+    $('pct').innerHTML = (todos.length ? `${done} of ${todos.length} done · ${pct}%` : 'No tasks yet')
+      + (overdue ? ` · <span class="over">${overdue} overdue</span>` : '');
     document.querySelectorAll('#filters button').forEach(b => b.classList.toggle('active', b.dataset.f === filter));
+    $('sort').textContent = 'Sort: ' + (sortByDue ? 'due date' : 'added');
   }
 
   $('form').onsubmit = e => {
     e.preventDefault();
     const text = $('input').value.trim();
     if (!text) return;
-    todos.push({ text, done: false });
-    $('input').value = '';
+    todos.push({ text, done: false, due: $('dueInput').value });
+    $('input').value = ''; $('dueInput').value = '';
     save(); render();
   };
   $('filters').onclick = e => { if (e.target.dataset.f) { filter = e.target.dataset.f; render(); } };
+  $('sort').onclick = () => { sortByDue = !sortByDue; render(); };
   $('clear').onclick = () => { todos = todos.filter(t => !t.done); save(); render(); };
   render();
 </script>
