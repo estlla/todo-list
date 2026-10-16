@@ -73,6 +73,19 @@
   .link { background:transparent; color:var(--muted); font-size:13px; padding:5px 8px; }
   .link:hover { color:var(--accent); }
   .link.danger:hover { color:var(--danger); }
+  .remindrow { width:100%; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:14px; color:var(--muted); }
+  .remindrow label { display:flex; align-items:center; gap:8px; }
+  .remindrow input { padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:transparent; color:inherit; font:inherit; font-size:14px; color-scheme:light dark; }
+  .remindrow input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 4px rgba(99,102,241,.18); }
+  .remind { display:inline-block; margin:2px 0 0 10px; font-size:12.5px; font-weight:600; color:var(--accent); }
+  .remind.fired { color:var(--muted); font-weight:500; }
+  .banner { margin-bottom:14px; padding:12px 16px; border-radius:14px; background:var(--card); border:1px solid var(--warn); color:var(--text); font-size:14px; }
+  .banner b { color:var(--warn); }
+  .banner button { background:transparent; color:var(--accent); font-weight:600; padding:0 0 0 8px; font-size:14px; }
+  #toasts { position:fixed; right:16px; bottom:16px; display:flex; flex-direction:column; gap:10px; z-index:10; max-width:calc(100vw - 32px); }
+  .toast { background:var(--card); backdrop-filter:blur(12px); border:1px solid var(--accent); border-radius:14px; padding:12px 16px; box-shadow:var(--shadow); animation:in .25s ease; min-width:240px; }
+  .toast b { display:block; }
+  .toast button { background:transparent; color:var(--accent); font-weight:600; padding:4px 0 0; font-size:13px; }
   .authcard { padding:24px; }
   .authcard h2 { margin:0 0 16px; font-size:20px; }
   .authcard form { flex-direction:column; flex-wrap:nowrap; padding:0; border:0; }
@@ -109,11 +122,16 @@
       <div class="progress"><div class="bar" id="bar"></div></div>
       <div class="pct" id="pct"></div>
     </header>
+    <div class="banner" id="missed" hidden></div>
     <div class="card">
       <form id="form">
         <input type="text" id="input" placeholder="Add a new task…" autocomplete="off" maxlength="500" autofocus>
         <input type="date" id="dueInput" title="Due date (optional)" aria-label="Due date">
         <button class="add" type="submit">Add</button>
+        <div class="remindrow">
+          <label>🔔 Remind me <input type="datetime-local" id="remindInput" aria-label="Reminder time"></label>
+          <button type="button" class="link" id="notifBtn" hidden>Enable notifications</button>
+        </div>
       </form>
       <ul id="list"></ul>
       <footer>
@@ -131,6 +149,7 @@
     </div>
   </div>
 </div>
+<div id="toasts" aria-live="polite"></div>
 <script>
   const ALLOW_SIGNUP = true;   // the local app (hardcoded login) sets this to false
   const LEGACY_KEY = 'todos-v1';
@@ -194,6 +213,7 @@
       localStorage.removeItem(LEGACY_KEY);
     } catch {}
     render();
+    checkReminders(true);
   }
 
   $('switchBtn').onclick = () => setMode(mode === 'login' ? 'register' : 'login');
@@ -209,6 +229,54 @@
   $('logout').onclick = async () => { await api('POST', '/api/logout').catch(() => {}); todos = []; $('username').value = ''; setMode('login'); showAuth(); };
 
   // ---- todo list ----
+  const parseDT = s => new Date(s);   // 'YYYY-MM-DDTHH:MM' is read as local time
+  const fmtDT = s => parseDT(s).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
+  const nowLocal = () => { const d = new Date(); d.setSeconds(0, 0); return `${iso(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+
+  // ---- reminders: fire while the page is open; list the ones missed while it was closed ----
+  function toast(t) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.innerHTML = '<b>🔔 Reminder</b><span></span><br><button data-a="done">Mark done</button> · <button data-a="x">Dismiss</button>';
+    el.querySelector('span').textContent = t.text;
+    el.onclick = e => {
+      const a = e.target.dataset.a;
+      if (!a) return;
+      if (a === 'done') { t.done = true; save(); render(); }
+      el.remove();
+    };
+    $('toasts').appendChild(el);
+  }
+
+  function checkReminders(onLoad) {
+    if ($('main').hidden) return;
+    const now = nowLocal();
+    const due = todos.filter(t => !t.done && t.remind && !t.reminded && t.remind <= now);
+    if (!due.length) return;
+    due.forEach(t => t.reminded = true);
+    save(); render();
+    if (onLoad) {
+      const b = $('missed');
+      b.innerHTML = `<b>⏰ ${due.length === 1 ? '1 reminder' : due.length + ' reminders'} passed while this page was closed:</b> <span></span><button id="missedX">Dismiss</button>`;
+      b.querySelector('span').textContent = due.map(t => t.text).join(', ');
+      b.hidden = false;
+      $('missedX').onclick = () => { b.hidden = true; };
+      return;
+    }
+    for (const t of due) {
+      toast(t);
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try { new Notification('Reminder', { body: t.text }); } catch {}
+      }
+    }
+  }
+
+  function updateNotifBtn() {
+    $('notifBtn').hidden = !('Notification' in window) || Notification.permission !== 'default';
+  }
+  $('notifBtn').onclick = async () => { try { await Notification.requestPermission(); } catch {} updateNotifBtn(); };
+  updateNotifBtn();
+
   function render() {
     let shown = todos.filter(t => filter === 'all' || (filter === 'done') === t.done);
     if (sortByDue) {
@@ -240,6 +308,12 @@
         d.className = 'due ' + info.cls; d.textContent = '📅 ' + info.label;
         body.appendChild(d);
       }
+      if (t.remind) {
+        const r = document.createElement('span');
+        r.className = 'remind' + (t.reminded || t.done ? ' fired' : '');
+        r.textContent = '🔔 ' + fmtDT(t.remind);
+        body.appendChild(r);
+      }
       const del = document.createElement('button');
       del.className = 'del'; del.textContent = '×'; del.title = 'Delete';
       del.onclick = () => { todos = todos.filter(x => x !== t); save(); render(); };
@@ -263,14 +337,18 @@
     e.preventDefault();
     const text = $('input').value.trim();
     if (!text) return;
-    todos.push({ text, done: false, due: $('dueInput').value });
-    $('input').value = ''; $('dueInput').value = '';
+    todos.push({ text, done: false, due: $('dueInput').value, remind: $('remindInput').value, reminded: false });
+    $('input').value = ''; $('dueInput').value = ''; $('remindInput').value = '';
     save(); render();
+    updateNotifBtn();
   };
+  // A reminder has to be in the future.
+  $('remindInput').onfocus = () => { $('remindInput').min = nowLocal(); };
   $('filters').onclick = e => { if (e.target.dataset.f) { filter = e.target.dataset.f; render(); } };
   $('sort').onclick = () => { sortByDue = !sortByDue; render(); };
   $('clear').onclick = () => { todos = todos.filter(t => !t.done); save(); render(); };
 
+  setInterval(() => checkReminders(false), 15000);
   api('GET', '/api/me').then(r => showApp(r.username)).catch(showAuth);
 </script>
 </body>

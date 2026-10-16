@@ -1,9 +1,11 @@
-const { sql, route, cleanDue, MAX_TODOS } = require('./_lib');
+const { route, readUser, writeUser, cleanDue, cleanRemind, MAX_TODOS } = require('./_lib');
 
 module.exports = route(['GET', 'PUT'], async (req, res, { json, me, body }) => {
+  const rec = await readUser(me);
+  if (!rec) return json(401, { error: 'Not signed in.' });
+
   if (req.method === 'GET') {
-    const rows = await sql`SELECT text, done, due FROM todos WHERE username = ${me} ORDER BY position`;
-    return json(200, { todos: rows });
+    return json(200, { todos: (rec.data.todos || []).map(t => ({ remind: '', reminded: false, ...t })) });
   }
 
   if (!Array.isArray(body.todos) || body.todos.length > MAX_TODOS) return json(400, { error: 'Invalid todos.' });
@@ -11,15 +13,10 @@ module.exports = route(['GET', 'PUT'], async (req, res, { json, me, body }) => {
     text: String(t && t.text).slice(0, 500),
     done: !!(t && t.done),
     due: cleanDue(t && t.due),
+    remind: cleanRemind(t && t.remind),
+    reminded: !!(t && t.reminded),
   }));
-
-  // Replace the whole list atomically: both statements run in one transaction.
-  await sql.transaction([
-    sql`DELETE FROM todos WHERE username = ${me}`,
-    sql`INSERT INTO todos (username, text, done, due, position)
-        SELECT ${me}, t.text, t.done, t.due, t.pos - 1
-        FROM unnest(${todos.map(t => t.text)}::text[], ${todos.map(t => t.done)}::boolean[], ${todos.map(t => t.due)}::text[])
-             WITH ORDINALITY AS t(text, done, due, pos)`,
-  ]);
+  // Replaces the whole list; the latest save wins.
+  await writeUser(me, { ...rec.data, todos });
   return json(200, { ok: true });
 }, { auth: true });

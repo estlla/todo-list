@@ -1,37 +1,34 @@
 // Shared helpers for the API functions. Files starting with "_" are not exposed as routes.
 //
-// Storage: Neon Postgres (connection string in DATABASE_URL), tables created on first use.
+// Storage: a private Vercel Blob store, one JSON file per user at users/<username>.json:
+//   { salt, hash, todos: [{text, done, due, remind, reminded}], failures: [<ms timestamps of recent bad logins>] }
 const crypto = require('crypto');
-const { neon } = require('@neondatabase/serverless');
+const { put, get } = require('@vercel/blob');
 
 const SESSION_TTL_S = 7 * 24 * 3600;
 const MAX_TODOS = 1000;
 
-const sql = process.env.DATABASE_URL ? neon(process.env.DATABASE_URL) : null;
+// ---- user storage ----
+const userPath = username => `users/${username}.json`;
 
-let schemaReady;
-function ensureSchema() {
-  schemaReady ??= sql.transaction([
-    sql`CREATE TABLE IF NOT EXISTS users (
-          username TEXT PRIMARY KEY,
-          salt     TEXT NOT NULL,
-          hash     TEXT NOT NULL
-        )`,
-    sql`CREATE TABLE IF NOT EXISTS todos (
-          id       BIGSERIAL PRIMARY KEY,
-          username TEXT NOT NULL REFERENCES users(username) ON DELETE CASCADE,
-          text     TEXT NOT NULL,
-          done     BOOLEAN NOT NULL DEFAULT FALSE,
-          due      TEXT NOT NULL DEFAULT '',
-          position INTEGER NOT NULL
-        )`,
-    sql`CREATE INDEX IF NOT EXISTS todos_user ON todos(username, position)`,
-    sql`CREATE TABLE IF NOT EXISTS login_failures (
-          username TEXT NOT NULL,
-          at       TIMESTAMPTZ NOT NULL DEFAULT now()
-        )`,
-  ]).catch(e => { schemaReady = undefined; throw e; });
-  return schemaReady;
+async function readUser(username) {
+  const r = await get(userPath(username), { access: 'private', useCache: false });
+  if (!r || r.statusCode !== 200) return null;
+  return { data: JSON.parse(await new Response(r.stream).text()), etag: r.blob.etag };
+}
+
+// create=true fails (returns false) if the user already exists, which makes sign-up atomic.
+async function writeUser(username, data, { create = false } = {}) {
+  try {
+    await put(userPath(username), JSON.stringify(data), {
+      access: 'private', contentType: 'application/json',
+      addRandomSuffix: false, allowOverwrite: !create, cacheControlMaxAge: 60,
+    });
+    return true;
+  } catch (e) {
+    if (create && /already exists/i.test(String(e && e.message))) return false;
+    throw e;
+  }
 }
 
 const hashPassword = (pw, salt) => crypto.scryptSync(pw, salt, 64).toString('hex');
@@ -66,6 +63,7 @@ const setSession = (res, username) => res.setHeader('Set-Cookie', cookie(makeTok
 const clearSession = res => res.setHeader('Set-Cookie', cookie('', 0));
 
 const cleanDue = d => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '');
+const cleanRemind = d => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(d) ? d : '');
 
 // Wraps a handler: method check, JSON-only writes, error handling, no caching.
 function route(methods, handler, { auth = false } = {}) {
@@ -77,8 +75,7 @@ function route(methods, handler, { auth = false } = {}) {
       if (req.method !== 'GET' && !(req.headers['content-type'] || '').startsWith('application/json')) {
         return json(415, { error: 'JSON only.' });
       }
-      if (!sql || !process.env.SESSION_SECRET) return json(500, { error: 'Server is not configured.' });
-      await ensureSchema();
+      if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.SESSION_SECRET) return json(500, { error: 'Server is not configured.' });
       let me = null;
       if (auth) {
         me = readToken(req);
@@ -92,4 +89,4 @@ function route(methods, handler, { auth = false } = {}) {
   };
 }
 
-module.exports = { sql, route, hashPassword, setSession, clearSession, cleanDue, MAX_TODOS };
+module.exports = { route, readUser, writeUser, hashPassword, setSession, clearSession, cleanDue, cleanRemind, MAX_TODOS };

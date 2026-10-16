@@ -4,275 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Todo List</title>
+<meta http-equiv="refresh" content="1; url=https://todo-list-navy-chi.vercel.app/">
+<link rel="canonical" href="https://todo-list-navy-chi.vercel.app/">
 <style>
-  :root {
-    --bg1:#eef0ff; --bg2:#fdf2f8; --card:rgba(255,255,255,.85); --text:#1c1f2e; --muted:#8b90a5;
-    --accent:#6366f1; --accent2:#a855f7; --border:rgba(99,102,241,.12); --danger:#ef4444; --warn:#d97706; --track:#e7e9f5;
-    --shadow:0 20px 50px -20px rgba(79,70,229,.35);
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg1:#12132a; --bg2:#1f1230; --card:rgba(30,32,52,.85); --text:#eceefb; --muted:#8e93ae; --warn:#fbbf24;
-            --border:rgba(255,255,255,.08); --track:#2a2d48; --shadow:0 20px 50px -20px rgba(0,0,0,.6); }
-  }
+  :root { --bg1:#eef0ff; --bg2:#fdf2f8; --card:rgba(255,255,255,.85); --text:#1c1f2e; --muted:#8b90a5; --accent:#6366f1; --accent2:#a855f7; --border:rgba(99,102,241,.12); }
+  @media (prefers-color-scheme: dark) { :root { --bg1:#12132a; --bg2:#1f1230; --card:rgba(30,32,52,.85); --text:#eceefb; --muted:#8e93ae; --border:rgba(255,255,255,.08); } }
   * { box-sizing:border-box; }
-  body { margin:0; min-height:100vh; color:var(--text);
-         background:linear-gradient(135deg,var(--bg1),var(--bg2)) fixed;
-         font:16px/1.45 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-         display:flex; justify-content:center; padding:56px 16px; }
-  .app { width:100%; max-width:540px; }
-  header { margin-bottom:22px; }
-  .date { font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; }
-  h1 { margin:4px 0 14px; font-size:34px; letter-spacing:-.02em;
-       background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .progress { height:8px; background:var(--track); border-radius:99px; overflow:hidden; }
-  .bar { height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .4s ease; }
-  .pct { margin-top:6px; font-size:13px; color:var(--muted); }
-  .pct .over { color:var(--danger); font-weight:600; }
-  .card { background:var(--card); backdrop-filter:blur(12px); border:1px solid var(--border);
-          border-radius:20px; box-shadow:var(--shadow); overflow:hidden; }
-  form { display:flex; gap:10px; padding:16px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
-  input[type=text], input[type=date] { padding:12px 14px; border:1px solid var(--border); border-radius:12px;
-                     background:transparent; color:inherit; font:inherit; transition:box-shadow .2s, border-color .2s; }
-  input[type=text] { flex:1; min-width:150px; }
-  input[type=date] { color-scheme:light dark; }
-  input::placeholder { color:var(--muted); }
-  input[type=text]:focus, input[type=date]:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 4px rgba(99,102,241,.18); }
-  button { font:inherit; cursor:pointer; border:0; border-radius:12px; transition:transform .15s, opacity .15s, background .15s, color .15s; }
-  .add { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#fff; padding:12px 20px; font-weight:600;
-         box-shadow:0 6px 16px -6px rgba(99,102,241,.7); }
-  .add:hover { transform:translateY(-1px); }
-  .add:active { transform:translateY(0) scale(.97); }
-  ul { list-style:none; margin:0; padding:6px 0; max-height:50vh; overflow:auto; }
-  li { display:flex; align-items:center; gap:14px; padding:13px 18px; transition:background .15s; animation:in .25s ease; }
-  li:hover { background:rgba(99,102,241,.06); }
-  @keyframes in { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
-  li input { appearance:none; -webkit-appearance:none; width:22px; height:22px; margin:0; flex:none; cursor:pointer;
-             border:2px solid var(--muted); border-radius:50%; display:grid; place-content:center; transition:all .2s; }
-  li input:hover { border-color:var(--accent); }
-  li input:checked { background:linear-gradient(135deg,var(--accent),var(--accent2)); border-color:transparent; }
-  li input:checked::after { content:""; width:6px; height:11px; border:solid #fff; border-width:0 2px 2px 0; transform:rotate(45deg) translate(-1px,-1px); }
-  .body { flex:1; min-width:0; }
-  .text { word-break:break-word; transition:color .2s; }
-  li.done .text { text-decoration:line-through; color:var(--muted); }
-  .due { display:inline-block; margin-top:2px; font-size:12.5px; font-weight:600; color:var(--muted); }
-  .due.today { color:var(--warn); }
-  .due.overdue { color:var(--danger); }
-  li.done .due { color:var(--muted); font-weight:500; }
-  .del { background:transparent; color:var(--muted); font-size:22px; line-height:1; padding:2px 8px; opacity:0; }
-  li:hover .del { opacity:1; }
-  .del:hover { color:var(--danger); background:rgba(239,68,68,.1); }
-  .empty { display:block; text-align:center; color:var(--muted); padding:36px 18px; }
-  .empty:hover { background:none; }
-  .empty b { display:block; font-size:34px; margin-bottom:6px; }
-  footer { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;
-           padding:12px 16px; border-top:1px solid var(--border); color:var(--muted); font-size:14px; }
-  .filters { display:flex; gap:4px; background:var(--track); padding:3px; border-radius:10px; }
-  .filters button { background:transparent; color:var(--muted); padding:5px 12px; border-radius:8px; font-size:13px; font-weight:500; }
-  .filters button.active { background:var(--card); color:var(--accent); box-shadow:0 1px 4px rgba(0,0,0,.12); }
-  .link { background:transparent; color:var(--muted); font-size:13px; padding:5px 8px; }
-  .link:hover { color:var(--accent); }
-  .link.danger:hover { color:var(--danger); }
-  .remindrow { width:100%; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:14px; color:var(--muted); }
-  .remindrow label { display:flex; align-items:center; gap:8px; }
-  .remindrow input { padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:transparent; color:inherit; font:inherit; font-size:14px; color-scheme:light dark; }
-  .remindrow input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 4px rgba(99,102,241,.18); }
-  .remind { display:inline-block; margin:2px 0 0 10px; font-size:12.5px; font-weight:600; color:var(--accent); }
-  .remind.fired { color:var(--muted); font-weight:500; }
-  .banner { margin-bottom:14px; padding:12px 16px; border-radius:14px; background:var(--card); border:1px solid var(--warn); color:var(--text); font-size:14px; }
-  .banner b { color:var(--warn); }
-  .banner button { background:transparent; color:var(--accent); font-weight:600; padding:0 0 0 8px; font-size:14px; }
-  #toasts { position:fixed; right:16px; bottom:16px; display:flex; flex-direction:column; gap:10px; z-index:10; max-width:calc(100vw - 32px); }
-  .toast { background:var(--card); backdrop-filter:blur(12px); border:1px solid var(--accent); border-radius:14px; padding:12px 16px; box-shadow:var(--shadow); animation:in .25s ease; min-width:240px; }
-  .toast b { display:block; }
-  .toast button { background:transparent; color:var(--accent); font-weight:600; padding:4px 0 0; font-size:13px; }
-  .note { margin-top:14px; text-align:center; font-size:12px; color:var(--muted); }
-  @media (max-width:480px) { body { padding:32px 12px; } .del { opacity:1; } }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px; color:var(--text);
+         background:linear-gradient(135deg,var(--bg1),var(--bg2)) fixed; font:16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .card { max-width:420px; width:100%; text-align:center; padding:32px 28px; background:var(--card); border:1px solid var(--border); border-radius:20px;
+          box-shadow:0 20px 50px -20px rgba(79,70,229,.35); }
+  h1 { margin:0 0 8px; font-size:28px; background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  p { margin:0 0 20px; color:var(--muted); }
+  .go { display:inline-block; padding:12px 24px; border-radius:12px; color:#fff; font-weight:600; text-decoration:none;
+        background:linear-gradient(135deg,var(--accent),var(--accent2)); box-shadow:0 6px 16px -6px rgba(99,102,241,.7); }
+  .alt { display:block; margin-top:18px; font-size:14px; color:var(--muted); }
+  .alt a { color:var(--accent); }
 </style>
 </head>
 <body>
-<div class="app">
-  <header>
-    <div class="date" id="date"></div>
-    <h1>My Tasks</h1>
-    <div class="progress"><div class="bar" id="bar"></div></div>
-    <div class="pct" id="pct"></div>
-  </header>
-  <div class="banner" id="missed" hidden></div>
-  <div class="card">
-    <form id="form">
-      <input type="text" id="input" placeholder="Add a new task…" autocomplete="off" maxlength="500" autofocus>
-      <input type="date" id="dueInput" title="Due date (optional)" aria-label="Due date">
-      <button class="add" type="submit">Add</button>
-      <div class="remindrow">
-        <label>🔔 Remind me <input type="datetime-local" id="remindInput" aria-label="Reminder time"></label>
-        <button type="button" class="link" id="notifBtn" hidden>Enable notifications</button>
-      </div>
-    </form>
-    <ul id="list"></ul>
-    <footer>
-      <span id="count"></span>
-      <div class="filters" id="filters">
-        <button data-f="all" class="active">All</button>
-        <button data-f="active">Active</button>
-        <button data-f="done">Done</button>
-      </div>
-      <span>
-        <button class="link" id="sort" title="Change sort order">Sort: added</button>
-        <button class="link danger" id="clear">Clear done</button>
-      </span>
-    </footer>
-  </div>
-  <p class="note">Tasks are saved in this browser only. Reminders fire while this page is open in a tab.</p>
-</div>
-<div id="toasts" aria-live="polite"></div>
-<script>
-  const KEY = 'todos-v1';
-  let todos = [];
-  // remind: local 'YYYY-MM-DDTHH:MM' or ''; reminded: true once the reminder has fired
-  try { todos = (JSON.parse(localStorage.getItem(KEY)) || []).map(t => ({ text: t.text, done: !!t.done, due: t.due || '', remind: t.remind || '', reminded: !!t.reminded })); } catch {}
-  let filter = 'all';
-  let sortByDue = false;
-  const $ = id => document.getElementById(id);
-  $('date').textContent = new Date().toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' });
-
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(todos)); } catch {} };
-
-  // ---- dates (all local time, stored as YYYY-MM-DD) ----
-  const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const parse = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
-  function dueInfo(t) {
-    if (!t.due) return null;
-    const today = iso(new Date());
-    const tomorrow = iso(new Date(Date.now() + 864e5));
-    const d = parse(t.due);
-    const nice = d.toLocaleDateString(undefined, { month:'short', day:'numeric', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
-    if (t.done) return { cls:'', label:'Due ' + nice };
-    if (t.due < today) return { cls:'overdue', label:'Overdue · ' + nice };
-    if (t.due === today) return { cls:'today', label:'Due today' };
-    if (t.due === tomorrow) return { cls:'', label:'Due tomorrow' };
-    return { cls:'', label:'Due ' + nice };
-  }
-
-  const parseDT = s => new Date(s);   // 'YYYY-MM-DDTHH:MM' is read as local time
-  const fmtDT = s => parseDT(s).toLocaleString(undefined, { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
-  const nowLocal = () => { const d = new Date(); d.setSeconds(0, 0); return `${iso(d)}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-
-  // ---- reminders: fire while the page is open; list the ones missed while it was closed ----
-  function toast(t) {
-    const el = document.createElement('div');
-    el.className = 'toast';
-    el.innerHTML = '<b>🔔 Reminder</b><span></span><br><button data-a="done">Mark done</button> · <button data-a="x">Dismiss</button>';
-    el.querySelector('span').textContent = t.text;
-    el.onclick = e => {
-      const a = e.target.dataset.a;
-      if (!a) return;
-      if (a === 'done') { t.done = true; save(); render(); }
-      el.remove();
-    };
-    $('toasts').appendChild(el);
-  }
-
-  function checkReminders(onLoad) {
-    const now = nowLocal();
-    const due = todos.filter(t => !t.done && t.remind && !t.reminded && t.remind <= now);
-    if (!due.length) return;
-    due.forEach(t => t.reminded = true);
-    save(); render();
-    if (onLoad) {
-      const b = $('missed');
-      b.innerHTML = `<b>⏰ ${due.length === 1 ? '1 reminder' : due.length + ' reminders'} passed while this page was closed:</b> <span></span><button id="missedX">Dismiss</button>`;
-      b.querySelector('span').textContent = due.map(t => t.text).join(', ');
-      b.hidden = false;
-      $('missedX').onclick = () => { b.hidden = true; };
-      return;
-    }
-    for (const t of due) {
-      toast(t);
-      if ('Notification' in window && Notification.permission === 'granted') {
-        try { new Notification('Reminder', { body: t.text }); } catch {}
-      }
-    }
-  }
-
-  function updateNotifBtn() {
-    $('notifBtn').hidden = !('Notification' in window) || Notification.permission !== 'default';
-  }
-  $('notifBtn').onclick = async () => { try { await Notification.requestPermission(); } catch {} updateNotifBtn(); };
-  updateNotifBtn();
-
-  function render() {
-    let shown = todos.filter(t => filter === 'all' || (filter === 'done') === t.done);
-    if (sortByDue) {
-      // Open tasks first, soonest due date first; tasks without a date go last.
-      shown = [...shown].sort((a, b) => (a.done - b.done) || ((a.due || '9999') < (b.due || '9999') ? -1 : (a.due || '9999') > (b.due || '9999') ? 1 : 0));
-    }
-    const list = $('list');
-    list.innerHTML = '';
-    if (!shown.length) {
-      const e = document.createElement('li');
-      e.className = 'empty';
-      e.innerHTML = '<b>✨</b>' + (todos.length ? 'Nothing in this view.' : 'All clear — add your first task.');
-      list.appendChild(e);
-    }
-    for (const t of shown) {
-      const li = document.createElement('li');
-      if (t.done) li.className = 'done';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox'; cb.checked = t.done;
-      cb.onchange = () => { t.done = cb.checked; save(); render(); };
-      const body = document.createElement('div');
-      body.className = 'body';
-      const sp = document.createElement('div');
-      sp.className = 'text'; sp.textContent = t.text;
-      body.appendChild(sp);
-      const info = dueInfo(t);
-      if (info) {
-        const d = document.createElement('span');
-        d.className = 'due ' + info.cls; d.textContent = '📅 ' + info.label;
-        body.appendChild(d);
-      }
-      if (t.remind) {
-        const r = document.createElement('span');
-        r.className = 'remind' + (t.reminded || t.done ? ' fired' : '');
-        r.textContent = '🔔 ' + fmtDT(t.remind);
-        body.appendChild(r);
-      }
-      const del = document.createElement('button');
-      del.className = 'del'; del.textContent = '×'; del.title = 'Delete';
-      del.onclick = () => { todos = todos.filter(x => x !== t); save(); render(); };
-      li.append(cb, body, del);
-      list.appendChild(li);
-    }
-    const left = todos.filter(t => !t.done).length;
-    const done = todos.length - left;
-    const today = iso(new Date());
-    const overdue = todos.filter(t => !t.done && t.due && t.due < today).length;
-    $('count').textContent = left + (left === 1 ? ' task left' : ' tasks left');
-    const pct = todos.length ? Math.round(done / todos.length * 100) : 0;
-    $('bar').style.width = pct + '%';
-    $('pct').innerHTML = (todos.length ? `${done} of ${todos.length} done · ${pct}%` : 'No tasks yet')
-      + (overdue ? ` · <span class="over">${overdue} overdue</span>` : '');
-    document.querySelectorAll('#filters button').forEach(b => b.classList.toggle('active', b.dataset.f === filter));
-    $('sort').textContent = 'Sort: ' + (sortByDue ? 'due date' : 'added');
-  }
-
-  $('form').onsubmit = e => {
-    e.preventDefault();
-    const text = $('input').value.trim();
-    if (!text) return;
-    todos.push({ text, done: false, due: $('dueInput').value, remind: $('remindInput').value, reminded: false });
-    $('input').value = ''; $('dueInput').value = ''; $('remindInput').value = '';
-    save(); render();
-    updateNotifBtn();
-  };
-  // A reminder has to be in the future.
-  $('remindInput').onfocus = () => { $('remindInput').min = nowLocal(); };
-  $('filters').onclick = e => { if (e.target.dataset.f) { filter = e.target.dataset.f; render(); } };
-  $('sort').onclick = () => { sortByDue = !sortByDue; render(); };
-  $('clear').onclick = () => { todos = todos.filter(t => !t.done); save(); render(); };
-  render();
-  checkReminders(true);
-  setInterval(() => checkReminders(false), 15000);
-</script>
+<main class="card">
+  <h1>My Tasks</h1>
+  <p>Taking you to the sign-in page…</p>
+  <a class="go" href="https://todo-list-navy-chi.vercel.app/">Sign in</a>
+  <span class="alt">Not redirected? Use the button above.<br>Prefer no account? <a href="local.html">Use the browser-only version</a>.</span>
+</main>
 </body>
 </html>
