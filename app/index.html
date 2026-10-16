@@ -115,7 +115,21 @@
   </div>
 
   <div id="main" hidden>
-    <div class="userbar"><span>Signed in as <b id="who"></b></span><button id="logout">Log out</button></div>
+    <div class="userbar"><span>Signed in as <b id="who"></b></span><span><button id="pwBtn">Change password</button> <button id="logout">Log out</button></span></div>
+    <div class="card authcard" id="pwCard" hidden style="margin-bottom:16px">
+      <h2>Change password</h2>
+      <form id="pwForm">
+        <label for="curPw">Current password</label>
+        <input type="password" id="curPw" autocomplete="current-password" required>
+        <label for="newPw">New password (8+ characters)</label>
+        <input type="password" id="newPw" autocomplete="new-password" minlength="8" required>
+        <label for="newPw2">Repeat new password</label>
+        <input type="password" id="newPw2" autocomplete="new-password" minlength="8" required>
+        <p class="err" id="pwMsg" role="alert"></p>
+        <button class="add" type="submit">Save new password</button>
+        <button type="button" class="link" id="pwCancel">Cancel</button>
+      </form>
+    </div>
     <header>
       <div class="date" id="date"></div>
       <h1>My Tasks</h1>
@@ -225,6 +239,23 @@
       $('password').value = '';
       await showApp(r.username);
     } catch (err) { $('authErr').textContent = err.message; }
+  };
+  // ---- change password ----
+  const pwReset = () => { $('pwForm').reset(); $('pwMsg').textContent = ''; $('pwMsg').style.color = ''; };
+  $('pwBtn').onclick = () => { pwReset(); $('pwCard').hidden = !$('pwCard').hidden; if (!$('pwCard').hidden) $('curPw').focus(); };
+  $('pwCancel').onclick = () => { pwReset(); $('pwCard').hidden = true; };
+  $('pwForm').onsubmit = async e => {
+    e.preventDefault();
+    const msg = $('pwMsg');
+    msg.style.color = '';
+    if ($('newPw').value !== $('newPw2').value) { msg.textContent = 'The new passwords don’t match.'; return; }
+    try {
+      await api('POST', '/api/password', { current: $('curPw').value, next: $('newPw').value });
+      pwReset();
+      msg.style.color = 'var(--accent)';
+      msg.textContent = 'Password changed. Other devices have been signed out.';
+      setTimeout(() => { if (msg.textContent.startsWith('Password changed')) { $('pwCard').hidden = true; pwReset(); } }, 2500);
+    } catch (err) { msg.textContent = err.message; }
   };
   $('logout').onclick = async () => { await api('POST', '/api/logout').catch(() => {}); todos = []; $('username').value = ''; setMode('login'); showAuth(); };
 

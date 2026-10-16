@@ -37,8 +37,12 @@ const hashPassword = (pw, salt) => crypto.scryptSync(pw, salt, 64).toString('hex
 const b64 = s => Buffer.from(s).toString('base64url');
 const mac = payload => crypto.createHmac('sha256', process.env.SESSION_SECRET).update(payload).digest('base64url');
 
-function makeToken(username) {
-  const payload = b64(JSON.stringify({ u: username, exp: Math.floor(Date.now() / 1000) + SESSION_TTL_S }));
+// The token carries a short fingerprint of the password hash, so changing the password
+// invalidates every cookie issued before it (see isCurrent).
+const fingerprint = hash => hash.slice(0, 12);
+
+function makeToken(username, hash) {
+  const payload = b64(JSON.stringify({ u: username, v: fingerprint(hash), exp: Math.floor(Date.now() / 1000) + SESSION_TTL_S }));
   return `${payload}.${mac(payload)}`;
 }
 
@@ -51,15 +55,18 @@ function readToken(req) {
   const given = Buffer.from(sig);
   if (good.length !== given.length || !crypto.timingSafeEqual(good, given)) return null;
   try {
-    const { u, exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
-    return exp > Date.now() / 1000 ? u : null;
+    const { u, v, exp } = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    return exp > Date.now() / 1000 && u && v ? { u, v } : null;
   } catch { return null; }
 }
+
+// True when the session was issued for the user's current password.
+const isCurrent = (rec, session) => !!rec && fingerprint(rec.data.hash) === session.v;
 
 // Secure cookies are dropped by browsers on plain http://localhost, so omit the flag in local testing.
 const cookie = (value, maxAge) =>
   `sid=${value}; HttpOnly; ${process.env.INSECURE_COOKIES ? '' : 'Secure; '}SameSite=Strict; Path=/; Max-Age=${maxAge}`;
-const setSession = (res, username) => res.setHeader('Set-Cookie', cookie(makeToken(username), SESSION_TTL_S));
+const setSession = (res, username, hash) => res.setHeader('Set-Cookie', cookie(makeToken(username, hash), SESSION_TTL_S));
 const clearSession = res => res.setHeader('Set-Cookie', cookie('', 0));
 
 const cleanDue = d => (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '');
@@ -76,12 +83,13 @@ function route(methods, handler, { auth = false } = {}) {
         return json(415, { error: 'JSON only.' });
       }
       if (!process.env.BLOB_READ_WRITE_TOKEN || !process.env.SESSION_SECRET) return json(500, { error: 'Server is not configured.' });
-      let me = null;
+      let me = null, session = null;
       if (auth) {
-        me = readToken(req);
-        if (!me) return json(401, { error: 'Not signed in.' });
+        session = readToken(req);
+        if (!session) return json(401, { error: 'Not signed in.' });
+        me = session.u;
       }
-      return await handler(req, res, { json, me, body: req.body && typeof req.body === 'object' ? req.body : {} });
+      return await handler(req, res, { json, me, session, body: req.body && typeof req.body === 'object' ? req.body : {} });
     } catch (e) {
       console.error(e);
       return json(500, { error: 'Something went wrong.' });
@@ -89,4 +97,4 @@ function route(methods, handler, { auth = false } = {}) {
   };
 }
 
-module.exports = { route, readUser, writeUser, hashPassword, setSession, clearSession, cleanDue, cleanRemind, MAX_TODOS };
+module.exports = { route, readUser, writeUser, hashPassword, setSession, clearSession, isCurrent, cleanDue, cleanRemind, MAX_TODOS };

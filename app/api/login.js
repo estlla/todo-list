@@ -25,6 +25,6 @@ module.exports = route(['POST'], async (req, res, { json, body }) => {
   }
 
   if ((rec.data.failures || []).length) await writeUser(username, { ...rec.data, failures: [] });
-  setSession(res, username);
+  setSession(res, username, rec.data.hash);
   return json(200, { username });
 });

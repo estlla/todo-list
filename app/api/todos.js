@@ -1,8 +1,8 @@
-const { route, readUser, writeUser, cleanDue, cleanRemind, MAX_TODOS } = require('./_lib');
+const { route, readUser, writeUser, isCurrent, cleanDue, cleanRemind, MAX_TODOS } = require('./_lib');
 
-module.exports = route(['GET', 'PUT'], async (req, res, { json, me, body }) => {
+module.exports = route(['GET', 'PUT'], async (req, res, { json, me, session, body }) => {
   const rec = await readUser(me);
-  if (!rec) return json(401, { error: 'Not signed in.' });
+  if (!isCurrent(rec, session)) return json(401, { error: 'Not signed in.' });
 
   if (req.method === 'GET') {
     return json(200, { todos: (rec.data.todos || []).map(t => ({ remind: '', reminded: false, ...t })) });
